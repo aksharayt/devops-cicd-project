@@ -1,12 +1,3 @@
-packer {
-  required_plugins {
-    amazon = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/amazon"
-    }
-  }
-}
-
 source "amazon-ebs" "kibana" {
   ami_name      = "custom-kibana-{{timestamp}}"
   instance_type = "t3.medium"
@@ -49,4 +40,5 @@ build {
       "sudo systemctl enable kibana"
     ]
   }
+
 }
