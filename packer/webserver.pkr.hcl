@@ -1,12 +1,3 @@
-packer {
-  required_plugins {
-    amazon = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/amazon"
-    }
-  }
-}
-
 source "amazon-ebs" "webserver" {
   ami_name      = "custom-webserver-{{timestamp}}"
   instance_type = "t2.micro"
@@ -50,4 +41,5 @@ build {
       "sudo systemctl enable docker"
     ]
   }
+
 }
