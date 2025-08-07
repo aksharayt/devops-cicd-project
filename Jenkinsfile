@@ -58,15 +58,14 @@ pipeline {
                 echo 'Building custom AMIs with Packer...'
                 dir('packer') {
                     withCredentials([
-                        usernamePassword(
-                            credentialsId: 'aws-credentials',
-                            usernameVariable: 'AWS_ACCESS_KEY_ID',
-                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                        )
+                        string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                        string(credentialsId: 'aws_session_token', variable: 'AWS_SESSION_TOKEN')
                     ]) {
                         sh '''
                             export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
                             export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                            export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 
                             chmod +x build-all-amis.sh
                             chmod +x scripts/*.sh
@@ -89,7 +88,19 @@ pipeline {
             steps {
                 echo 'Destroying existing infrastructure...'
                 dir('terraform') {
-                    sh 'terraform destroy -auto-approve'
+                    withCredentials([
+                        string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                        string(credentialsId: 'aws_session_token', variable: 'AWS_SESSION_TOKEN')
+                    ]) {
+                        sh '''
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                            export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+
+                            terraform destroy -auto-approve
+                        '''
+                    }
                 }
             }
         }
@@ -104,11 +115,21 @@ pipeline {
             steps {
                 echo 'Planning infrastructure changes...'
                 dir('terraform') {
-                    sh '''
-                        terraform init
-                        terraform validate
-                        terraform plan -out=tfplan
-                    '''
+                    withCredentials([
+                        string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                        string(credentialsId: 'aws_session_token', variable: 'AWS_SESSION_TOKEN')
+                    ]) {
+                        sh '''
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                            export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+
+                            terraform init
+                            terraform validate
+                            terraform plan -out=tfplan
+                        '''
+                    }
                 }
             }
         }
@@ -123,7 +144,19 @@ pipeline {
             steps {
                 echo 'Deploying infrastructure with Terraform...'
                 dir('terraform') {
-                    sh 'terraform apply -auto-approve tfplan'
+                    withCredentials([
+                        string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                        string(credentialsId: 'aws_session_token', variable: 'AWS_SESSION_TOKEN')
+                    ]) {
+                        sh '''
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                            export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+
+                            terraform apply -auto-approve tfplan
+                        '''
+                    }
                 }
             }
         }
