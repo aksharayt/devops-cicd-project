@@ -57,16 +57,27 @@ pipeline {
             steps {
                 echo 'Building custom AMIs with Packer...'
                 dir('packer') {
-                    sh '''
-                        chmod +x build-all-amis.sh
-                        chmod +x scripts/*.sh
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'aws-credentials',
+                            usernameVariable: 'AWS_ACCESS_KEY_ID',
+                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        )
+                    ]) {
+                        sh '''
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-                        echo "Running packer init..."
-                        packer init .
+                            chmod +x build-all-amis.sh
+                            chmod +x scripts/*.sh
 
-                        echo "Starting AMI build..."
-                        ./build-all-amis.sh
-                    '''
+                            echo "Running packer init..."
+                            packer init .
+
+                            echo "Starting AMI build..."
+                            ./build-all-amis.sh
+                        '''
+                    }
                 }
             }
         }
@@ -249,4 +260,3 @@ pipeline {
         }
     }
 }
-
