@@ -1,0 +1,22 @@
+# Elasticsearch configuration
+cluster.name: devops-cluster
+node.name: es-node-1
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery settings for single node
+discovery.type: single-node
+
+# Security settings (disabled for development)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Memory settings
+bootstrap.memory_lock: false
+
+# Cluster settings
+cluster.initial_master_nodes: ["es-node-1"]

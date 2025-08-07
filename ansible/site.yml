@@ -1,0 +1,77 @@
+---
+- name: Configure All Infrastructure
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get Terraform outputs
+      shell: cd ../terraform && terraform output -json
+      register: terraform_outputs
+      changed_when: false
+
+    - name: Parse Terraform outputs
+      set_fact:
+        tf_outputs: "{{ terraform_outputs.stdout | from_json }}"
+
+    - name: Generate dynamic inventory
+      template:
+        src: templates/dynamic_inventory.yml.j2
+        dest: dynamic_inventory.yml
+
+- name: Deploy Web Application
+  hosts: webservers
+  become: yes
+  roles:
+    - webserver
+
+- name: Configure Elasticsearch
+  hosts: elasticsearch
+  become: yes
+  roles:
+    - elasticsearch
+
+- name: Configure Kibana
+  hosts: kibana
+  become: yes
+  roles:
+    - kibana
+
+- name: Configure MySQL Primary
+  hosts: mysql_primary
+  become: yes
+  roles:
+    - mysql-primary
+
+- name: Configure MySQL Standby
+  hosts: mysql_standby
+  become: yes
+  roles:
+    - mysql-standby
+
+- name: Final Configuration and Testing
+  hosts: all
+  become: yes
+  tasks:
+    - name: Run health checks
+      uri:
+        url: "http://{{ ansible_host }}:{{ item.port }}{{ item.path | default('') }}"
+        method: GET
+        status_code: [200, 201, 202]
+      loop:
+        - { port: 80, path: "/health" }
+      when: inventory_hostname in groups['webservers']
+      ignore_errors: yes
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          🎉 Deployment completed successfully!
+          
+          Services URLs:
+          - Web Server: http://{{ hostvars['webserver']['ansible_host'] }}
+          - Kibana: http://{{ hostvars['kibana']['ansible_host'] }}:5601
+          - Elasticsearch: http://{{ hostvars['elasticsearch']['private_ip'] }}:9200
+          
+          Database Connections:
+          - MySQL Primary: {{ hostvars['mysql-primary']['private_ip'] }}:3306
+          - MySQL Standby: {{ hostvars['mysql-standby']['private_ip'] }}:3306
+      run_once: true

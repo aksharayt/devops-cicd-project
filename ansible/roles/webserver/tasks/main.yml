@@ -1,0 +1,51 @@
+---
+- name: Ensure nginx is started and enabled
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Deploy sample web application
+  template:
+    src: app.js.j2
+    dest: /opt/app.js
+    mode: '0644'
+
+- name: Install PM2 for Node.js process management
+  npm:
+    name: pm2
+    global: yes
+
+- name: Start the Node.js application
+  shell: |
+    cd /opt
+    pm2 start app.js --name "web-app"
+    pm2 save
+    pm2 startup
+  args:
+    creates: /home/ubuntu/.pm2/dump.pm2
+
+- name: Create nginx configuration for the app
+  template:
+    src: nginx-app.conf.j2
+    dest: /etc/nginx/sites-available/app
+    backup: yes
+  notify: restart nginx
+
+- name: Enable the app site
+  file:
+    src: /etc/nginx/sites-available/app
+    dest: /etc/nginx/sites-enabled/app
+    state: link
+  notify: restart nginx
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Ensure nginx is running
+  systemd:
+    name: nginx
+    state: started

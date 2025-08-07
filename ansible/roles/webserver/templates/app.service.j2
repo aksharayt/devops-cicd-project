@@ -1,0 +1,20 @@
+[Unit]
+Description={{ app_name }} - DevOps Sample Application
+Documentation=https://github.com/devops-team/sample-app
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/{{ app_name }}
+ExecStart=/usr/bin/node app.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier={{ app_name }}
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
