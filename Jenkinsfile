@@ -60,6 +60,11 @@ pipeline {
                     sh '''
                         chmod +x build-all-amis.sh
                         chmod +x scripts/*.sh
+
+                        echo "Running packer init..."
+                        packer init .
+
+                        echo "Starting AMI build..."
                         ./build-all-amis.sh
                     '''
                 }
@@ -244,3 +249,4 @@ pipeline {
         }
     }
 }
+
