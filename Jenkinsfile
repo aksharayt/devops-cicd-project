@@ -30,7 +30,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Skipping SCM checkout as Git is not used.'
+                checkout scm
                 sh 'ls -la'
             }
         }
