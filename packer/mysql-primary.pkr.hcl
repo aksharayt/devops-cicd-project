@@ -1,12 +1,3 @@
-packer {
-  required_plugins {
-    amazon = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/amazon"
-    }
-  }
-}
-
 source "amazon-ebs" "mysql-primary" {
   ami_name      = "custom-mysql-primary-{{timestamp}}"
   instance_type = "t3.medium"
@@ -49,4 +40,5 @@ build {
       "sudo systemctl enable mysql"
     ]
   }
+
 }
