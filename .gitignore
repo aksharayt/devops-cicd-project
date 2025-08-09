@@ -37,6 +37,8 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.local
+.env.production
 
 # Build outputs
 dist/
@@ -55,11 +57,12 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Terraform files
+# Terraform files (IMPORTANT: Exclude .terraform directory)
 *.tfstate
 *.tfstate.*
 .terraform/
 *.tfvars
+.terraform.lock.hcl
 
 # Ansible vault files
 vault_pass.txt
@@ -72,3 +75,10 @@ packer_cache/
 
 # AWS credentials
 .aws/credentials
+
+# SSH keys
+*.pem
+*.key
+
+# Sensitive files
+secrets/
