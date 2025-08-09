@@ -1,0 +1,40 @@
+{
+  "environment": "{{ environment | default('development') }}",
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "database": {
+    "primary": {
+      "host": "{{ mysql_host }}",
+      "port": 3306,
+      "name": "appdb",
+      "user": "appuser",
+      "password": "AppPassword123!"
+    },
+    "standby": {
+      "host": "{{ hostvars['mysql_standby']['private_ip'] if hostvars['mysql_standby'] is defined else mysql_host }}",
+      "port": 3306,
+      "name": "appdb",
+      "user": "appuser", 
+      "password": "AppPassword123!"
+    }
+  },
+  "elasticsearch": {
+    "host": "{{ elasticsearch_host }}",
+    "port": 9200,
+    "indices": {
+      "logs": "logs",
+      "metrics": "metrics"
+    }
+  },
+  "logging": {
+    "level": "info",
+    "format": "json"
+  },
+  "features": {
+    "replication_monitoring": true,
+    "elasticsearch_logging": true,
+    "health_checks": true
+  }
+}

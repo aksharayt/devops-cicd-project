@@ -1,0 +1,183 @@
+const express = require('express');
+const mysql = require('mysql2/promise');
+const { Client } = require('@elastic/elasticsearch');
+const config = require('./config.json');
+
+const app = express();
+const port = 3000;
+
+// Middleware
+app.use(express.json());
+app.use(express.static('public'));
+
+// MySQL connection pool
+const mysqlPool = mysql.createPool({
+  host: '{{ mysql_host }}',
+  user: 'appuser',
+  password: 'AppPassword123!',
+  database: 'appdb',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Elasticsearch client
+const esClient = new Client({
+  node: 'http://{{ elasticsearch_host }}:9200'
+});
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  try {
+    // Check MySQL connection
+    const [mysqlRows] = await mysqlPool.execute('SELECT 1');
+    
+    // Check Elasticsearch connection
+    const esHealth = await esClient.cluster.health();
+    
+    // Log health check to Elasticsearch
+    await esClient.index({
+      index: 'logs',
+      body: {
+        '@timestamp': new Date().toISOString(),
+        message: 'Health check performed',
+        level: 'INFO',
+        service: 'webapp',
+        mysql_status: 'connected',
+        elasticsearch_status: esHealth.status
+      }
+    });
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        mysql: 'connected',
+        elasticsearch: esHealth.status
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Get users endpoint
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await mysqlPool.execute('SELECT id, username, email, created_at FROM users');
+    
+    // Log API access
+    await esClient.index({
+      index: 'logs',
+      body: {
+        '@timestamp': new Date().toISOString(),
+        message: 'Users API accessed',
+        level: 'INFO',
+        service: 'webapp',
+        endpoint: '/api/users',
+        user_count: rows.length
+      }
+    });
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
+// Get posts endpoint
+app.get('/api/posts', async (req, res) => {
+  try {
+    const [rows] = await mysqlPool.execute(`
+      SELECT p.id, p.title, p.content, p.created_at, u.username 
+      FROM posts p 
+      JOIN users u ON p.user_id = u.id 
+      ORDER BY p.created_at DESC
+    `);
+    
+    // Log API access
+    await esClient.index({
+      index: 'logs',
+      body: {
+        '@timestamp': new Date().toISOString(),
+        message: 'Posts API accessed',
+        level: 'INFO',
+        service: 'webapp',
+        endpoint: '/api/posts',
+        post_count: rows.length
+      }
+    });
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
+// Search posts endpoint using Elasticsearch
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+
+    const searchResult = await esClient.search({
+      index: 'logs',
+      body: {
+        query: {
+          match: {
+            message: q
+          }
+        },
+        size: 20,
+        sort: [
+          { '@timestamp': { order: 'desc' } }
+        ]
+      }
+    });
+
+    res.json({
+      query: q,
+      total: searchResult.hits.total.value,
+      results: searchResult.hits.hits.map(hit => hit._source)
+    });
+  } catch (error) {
+    console.error('Elasticsearch error:', error);
+    res.status(500).json({ error: 'Search service unavailable' });
+  }
+});
+
+// Start server
+app.listen(port, () => {
+  console.log(`DevOps Sample App listening at http://localhost:${port}`);
+  console.log(`Environment: {{ ansible_hostname }}`);
+  console.log(`MySQL Host: {{ mysql_host }}`);
+  console.log(`Elasticsearch Host: {{ elasticsearch_host }}`);
+  
+  // Log application startup
+  esClient.index({
+    index: 'logs',
+    body: {
+      '@timestamp': new Date().toISOString(),
+      message: 'Application started successfully',
+      level: 'INFO',
+      service: 'webapp',
+      version: '{{ app_version }}',
+      host: '{{ ansible_hostname }}'
+    }
+  }).catch(console.error);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  mysqlPool.end();
+  process.exit(0);
+});

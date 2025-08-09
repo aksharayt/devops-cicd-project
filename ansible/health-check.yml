@@ -1,0 +1,174 @@
+---
+- name: Health Check - Web Servers
+  hosts: webservers
+  gather_facts: yes
+  tasks:
+    - name: Check Nginx status
+      systemd:
+        name: nginx
+      register: nginx_status
+
+    - name: Check application service status
+      systemd:
+        name: devops-sample-app
+      register: app_status
+
+    - name: Test web server response
+      uri:
+        url: "http://localhost"
+        method: GET
+        timeout: 10
+      register: web_response
+      ignore_errors: yes
+
+    - name: Test API health endpoint
+      uri:
+        url: "http://localhost:3000/health"
+        method: GET
+        timeout: 10
+      register: api_health
+      ignore_errors: yes
+
+    - name: Display web server status
+      debug:
+        msg: |
+          Web Server Health Check:
+          - Nginx: {{ nginx_status.status.ActiveState if nginx_status.status is defined else 'Unknown' }}
+          - Application: {{ app_status.status.ActiveState if app_status.status is defined else 'Unknown' }}
+          - Web Response: {{ web_response.status if web_response.status is defined else 'Failed' }}
+          - API Health: {{ api_health.status if api_health.status is defined else 'Failed' }}
+
+- name: Health Check - Elasticsearch
+  hosts: elasticsearch
+  gather_facts: yes
+  tasks:
+    - name: Check Elasticsearch service status
+      systemd:
+        name: elasticsearch
+      register: es_status
+
+    - name: Test Elasticsearch cluster health
+      uri:
+        url: "http://localhost:9200/_cluster/health"
+        method: GET
+        timeout: 10
+      register: es_health
+      ignore_errors: yes
+
+    - name: Display Elasticsearch status
+      debug:
+        msg: |
+          Elasticsearch Health Check:
+          - Service: {{ es_status.status.ActiveState if es_status.status is defined else 'Unknown' }}
+          - Cluster Status: {{ es_health.json.status if es_health.json is defined else 'Unknown' }}
+          - Number of Nodes: {{ es_health.json.number_of_nodes if es_health.json is defined else 'Unknown' }}
+
+- name: Health Check - Kibana
+  hosts: kibana
+  gather_facts: yes
+  tasks:
+    - name: Check Kibana service status
+      systemd:
+        name: kibana
+      register: kibana_status
+
+    - name: Test Kibana API
+      uri:
+        url: "http://localhost:5601/api/status"
+        method: GET
+        timeout: 15
+      register: kibana_api
+      ignore_errors: yes
+
+    - name: Display Kibana status
+      debug:
+        msg: |
+          Kibana Health Check:
+          - Service: {{ kibana_status.status.ActiveState if kibana_status.status is defined else 'Unknown' }}
+          - API Response: {{ kibana_api.status if kibana_api.status is defined else 'Failed' }}
+
+- name: Health Check - MySQL Primary
+  hosts: mysql_primary
+  gather_facts: yes
+  tasks:
+    - name: Check MySQL service status
+      systemd:
+        name: mysql
+      register: mysql_status
+
+    - name: Test MySQL connection
+      shell: mysql -u appuser -pAppPassword123! -e "SELECT 1" appdb
+      register: mysql_connection
+      ignore_errors: yes
+
+    - name: Check replication users
+      shell: mysql -u root -pDevOpsPassword123! -e "SELECT user,host FROM mysql.user WHERE user='replica'"
+      register: replication_users
+      ignore_errors: yes
+
+    - name: Display MySQL Primary status
+      debug:
+        msg: |
+          MySQL Primary Health Check:
+          - Service: {{ mysql_status.status.ActiveState if mysql_status.status is defined else 'Unknown' }}
+          - Connection: {{ 'OK' if mysql_connection.rc == 0 else 'Failed' }}
+          - Replication User: {{ 'Configured' if replication_users.stdout_lines is defined and replication_users.stdout_lines|length > 1 else 'Missing' }}
+
+- name: Health Check - MySQL Standby
+  hosts: mysql_standby
+  gather_facts: yes
+  tasks:
+    - name: Check MySQL service status
+      systemd:
+        name: mysql
+      register: mysql_status
+
+    - name: Check replication status
+      shell: mysql -u root -pDevOpsPassword123! -e "SHOW SLAVE STATUS\G" | grep -E "(Slave_IO_Running|Slave_SQL_Running|Seconds_Behind_Master)"
+      register: replication_status
+      ignore_errors: yes
+
+    - name: Display MySQL Standby status
+      debug:
+        msg: |
+          MySQL Standby Health Check:
+          - Service: {{ mysql_status.status.ActiveState if mysql_status.status is defined else 'Unknown' }}
+          - Replication Status: {{ replication_status.stdout_lines if replication_status.stdout_lines is defined else 'Failed to get status' }}
+
+- name: Generate Health Report
+  hosts: localhost
+  gather_facts: yes
+  tasks:
+    - name: Create health report
+      copy:
+        content: |
+          DevOps CI/CD Health Check Report
+          Generated: {{ ansible_date_time.iso8601 }}
+          
+          All services have been checked.
+          Check individual task outputs above for detailed status.
+          
+          {% if groups['webservers'] is defined and groups['webservers'] | length > 0 %}
+          Access Points:
+          - Web Application: http://{{ hostvars[groups['webservers'][0]]['ansible_host'] }}
+          - API Health: http://{{ hostvars[groups['webservers'][0]]['ansible_host'] }}:3000/health
+          {% endif %}
+          {% if groups['kibana'] is defined and groups['kibana'] | length > 0 %}
+          - Kibana Dashboard: http://{{ hostvars[groups['kibana'][0]]['ansible_host'] }}:5601
+          {% endif %}
+          
+        dest: /tmp/health-report.txt
+
+    - name: Display access information
+      debug:
+        msg: |
+          Health check completed!
+          
+          {% if groups['webservers'] is defined and groups['webservers'] | length > 0 %}
+          Access your deployed services:
+          Web App: http://{{ hostvars[groups['webservers'][0]]['ansible_host'] }}
+          API Health: http://{{ hostvars[groups['webservers'][0]]['ansible_host'] }}:3000/health
+          {% endif %}
+          {% if groups['kibana'] is defined and groups['kibana'] | length > 0 %}
+          Kibana: http://{{ hostvars[groups['kibana'][0]]['ansible_host'] }}:5601
+          {% endif %}
