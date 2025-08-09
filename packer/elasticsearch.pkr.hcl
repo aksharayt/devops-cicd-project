@@ -1,12 +1,3 @@
-packer {
-  required_plugins {
-    amazon = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/amazon"
-    }
-  }
-}
-
 source "amazon-ebs" "elasticsearch" {
   ami_name      = "custom-elasticsearch-{{timestamp}}"
   instance_type = "t3.medium"
@@ -49,4 +40,5 @@ build {
       "sudo systemctl enable elasticsearch"
     ]
   }
+
 }
