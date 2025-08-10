@@ -30,13 +30,28 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out code from SCM...'
-                checkout scm
+                echo 'Skipping SCM checkout as Git is not used.'
                 sh 'ls -la'
             }
         }
 
-        stage('Validate Tools & AWS Connection') {
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing required dependencies...'
+                sh '''
+                    # Install jq if not present
+                    if ! command -v jq &> /dev/null; then
+                        echo "Installing jq..."
+                        apt-get update && apt-get install -y jq || yum install -y jq || apk add jq
+                    fi
+                    
+                    # Verify jq installation
+                    jq --version
+                '''
+            }
+        }
+
+        stage('Validate Tools') {
             steps {
                 echo 'Validating required tools...'
                 sh '''
@@ -44,19 +59,8 @@ pipeline {
                     terraform version
                     ansible --version
                     aws --version
+                    jq --version
                 '''
-                
-                echo 'Testing AWS credentials...'
-                withCredentials([
-                    string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY'),
-                    string(credentialsId: 'aws_session_token', variable: 'AWS_SESSION_TOKEN')
-                ]) {
-                    sh '''
-                        echo "Testing AWS connection..."
-                        aws sts get-caller-identity
-                    '''
-                }
             }
         }
 
@@ -222,7 +226,14 @@ pipeline {
             steps {
                 echo 'Testing connectivity to instances...'
                 dir('ansible') {
-                    sh 'ansible all -m ping --ssh-common-args="-o ConnectTimeout=10"'
+                    withCredentials([
+                        sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                    ]) {
+                        sh '''
+                            chmod 600 $SSH_KEY_PATH
+                            ansible all -m ping --private-key=$SSH_KEY_PATH --ssh-common-args="-o ConnectTimeout=10 -o StrictHostKeyChecking=no"
+                        '''
+                    }
                 }
             }
         }
@@ -237,7 +248,14 @@ pipeline {
             steps {
                 echo 'Deploying applications with Ansible...'
                 dir('ansible') {
-                    sh 'ansible-playbook deploy-app.yml -v'
+                    withCredentials([
+                        sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                    ]) {
+                        sh '''
+                            chmod 600 $SSH_KEY_PATH
+                            ansible-playbook deploy-app.yml -v --private-key=$SSH_KEY_PATH
+                        '''
+                    }
                 }
             }
         }
@@ -246,7 +264,14 @@ pipeline {
             steps {
                 echo 'Performing health checks...'
                 dir('ansible') {
-                    sh 'ansible-playbook health-check.yml'
+                    withCredentials([
+                        sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                    ]) {
+                        sh '''
+                            chmod 600 $SSH_KEY_PATH
+                            ansible-playbook health-check.yml --private-key=$SSH_KEY_PATH
+                        '''
+                    }
                 }
             }
         }
@@ -273,11 +298,6 @@ pipeline {
                     • Kibana Dashboard: http://[KIBANA_IP]:5601
                     • API Health Check: http://[WEB_SERVER_IP]/health
 
-                     Next Steps:
-                    1. Test the web application
-                    2. Check Kibana dashboards
-                    3. Verify database replication
-                    4. Monitor logs in Elasticsearch
                     """
 
                     writeFile file: 'deployment-report.txt', text: deploymentReport
@@ -296,9 +316,19 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
+            emailext (
+                subject: "DevOps CI/CD Deployment Successful",
+                body: "The deployment pipeline completed successfully. Check Jenkins for details.",
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'team@example.com'}"
+            )
         }
         failure {
             echo 'Pipeline failed!'
+            emailext (
+                subject: "DevOps CI/CD Deployment Failed",
+                body: "The deployment pipeline failed. Check Jenkins logs for details.",
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'team@example.com'}"
+            )
         }
     }
 }
