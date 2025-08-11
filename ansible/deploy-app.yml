@@ -5,80 +5,16 @@
   vars:
     app_name: "devops-sample-app"
     app_version: "1.0.0"
-    mysql_host: "{{ hostvars['mysql_primary']['private_ip'] }}"
-    elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] }}"
-
-  tasks:
-    - name: Create application directory
-      file:
-        path: /opt/{{ app_name }}
-        state: directory
-        owner: ubuntu
-        group: ubuntu
-        mode: '0755'
-
-    - name: Copy application files
-      template:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        owner: ubuntu
-        group: ubuntu
-        mode: '0644'
-      loop:
-        - { src: 'app.js.j2', dest: '/opt/{{ app_name }}/app.js' }
-        - { src: 'package.json.j2', dest: '/opt/{{ app_name }}/package.json' }
-        - { src: 'config.json.j2', dest: '/opt/{{ app_name }}/config.json' }
-
-    - name: Install Node.js dependencies
-      npm:
-        path: /opt/{{ app_name }}
-        state: present
-      become_user: ubuntu
-
-    - name: Create systemd service for application
-      template:
-        src: app.service.j2
-        dest: /etc/systemd/system/{{ app_name }}.service
-        mode: '0644'
-      notify: reload systemd
-
-    - name: Start and enable application service
-      systemd:
-        name: "{{ app_name }}"
-        state: started
-        enabled: yes
-        daemon_reload: yes
-
-    - name: Update Nginx configuration for application
-      template:
-        src: nginx-app.conf.j2
-        dest: /etc/nginx/sites-available/{{ app_name }}
-        mode: '0644'
-      notify: restart nginx
-
-    - name: Enable Nginx site
-      file:
-        src: /etc/nginx/sites-available/{{ app_name }}
-        dest: /etc/nginx/sites-enabled/{{ app_name }}
-        state: link
-      notify: restart nginx
-
-  handlers:
-    - name: reload systemd
-      systemd:
-        daemon_reload: yes
-
-    - name: restart nginx
-      systemd:
-        name: nginx
-        state: restarted
+    mysql_host: "{{ hostvars['mysql-primary']['private_ip'] | default('localhost') }}"
+    elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] | default('localhost') }}"
+  roles:
+    - webserver
 
 - name: Configure Elasticsearch and Kibana Integration
-  hosts: kibana_nodes
+  hosts: kibana
   become: yes
   vars:
-    elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] }}"
-
+    elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] | default('localhost') }}"
   tasks:
     - name: Update Kibana Elasticsearch configuration
       lineinfile:
@@ -86,12 +22,10 @@
         regexp: '^elasticsearch.hosts:'
         line: 'elasticsearch.hosts: ["http://{{ elasticsearch_host }}:9200"]'
       notify: restart kibana
-
     - name: Restart Kibana to apply configuration
       systemd:
         name: kibana
         state: restarted
-
   handlers:
     - name: restart kibana
       systemd:
@@ -99,13 +33,12 @@
         state: restarted
 
 - name: Verify MySQL Replication
-  hosts: database_standby
+  hosts: mysql_standby
   become: yes
   tasks:
     - name: Check replication status
       shell: mysql -u root -pDevOpsPassword123! -e "SHOW SLAVE STATUS\G"
       register: replication_status
-
     - name: Display replication status
       debug:
         var: replication_status.stdout_lines
