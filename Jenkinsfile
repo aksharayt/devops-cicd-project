@@ -532,7 +532,7 @@ Notes:
             }
         }
         success {
-            echo '🎉 Pipeline completed successfully!'
+            echo 'Pipeline completed successfully!'
             script {
                 try {
                     emailext (
@@ -589,5 +589,6 @@ Notes:
         }
     }
 }
+
 
 
