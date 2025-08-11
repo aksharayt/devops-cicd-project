@@ -5,13 +5,13 @@
   vars:
     app_name: "devops-sample-app"
     app_version: "1.0.0"
-    mysql_host: "{{ hostvars['mysql-primary']['private_ip'] | default('localhost') }}"
+    mysql_host: "{{ hostvars['mysql_primary']['private_ip'] | default('localhost') }}"
     elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] | default('localhost') }}"
   roles:
     - webserver
 
 - name: Configure Elasticsearch and Kibana Integration
-  hosts: kibana
+  hosts: kibana_nodes
   become: yes
   vars:
     elasticsearch_host: "{{ hostvars['elasticsearch']['private_ip'] | default('localhost') }}"
@@ -33,7 +33,7 @@
         state: restarted
 
 - name: Verify MySQL Replication
-  hosts: mysql_standby
+  hosts: database_standby
   become: yes
   tasks:
     - name: Check replication status
