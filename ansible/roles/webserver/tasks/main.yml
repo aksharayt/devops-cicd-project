@@ -1,51 +1,54 @@
 ---
-- name: Ensure nginx is started and enabled
+- name: Create application directory
+  file:
+    path: /opt/{{ app_name }}
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Copy application files
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  loop:
+    - { src: 'app.js.j2', dest: '/opt/{{ app_name }}/app.js' }
+    - { src: 'package.json.j2', dest: '/opt/{{ app_name }}/package.json' }
+    - { src: 'config.json.j2', dest: '/opt/{{ app_name }}/config.json' }
+
+- name: Install Node.js dependencies
+  npm:
+    path: /opt/{{ app_name }}
+    state: present
+  become_user: ubuntu
+
+- name: Create systemd service for application
+  template:
+    src: app.service.j2
+    dest: /etc/systemd/system/{{ app_name }}.service
+    mode: '0644'
+  notify: reload systemd
+
+- name: Start and enable application service
   systemd:
-    name: nginx
+    name: "{{ app_name }}"
     state: started
     enabled: yes
+    daemon_reload: yes
 
-- name: Deploy sample web application
-  template:
-    src: app.js.j2
-    dest: /opt/app.js
-    mode: '0644'
-
-- name: Install PM2 for Node.js process management
-  npm:
-    name: pm2
-    global: yes
-
-- name: Start the Node.js application
-  shell: |
-    cd /opt
-    pm2 start app.js --name "web-app"
-    pm2 save
-    pm2 startup
-  args:
-    creates: /home/ubuntu/.pm2/dump.pm2
-
-- name: Create nginx configuration for the app
+- name: Update Nginx configuration for application
   template:
     src: nginx-app.conf.j2
-    dest: /etc/nginx/sites-available/app
-    backup: yes
+    dest: /etc/nginx/sites-available/{{ app_name }}
+    mode: '0644'
   notify: restart nginx
 
-- name: Enable the app site
+- name: Enable Nginx site
   file:
-    src: /etc/nginx/sites-available/app
-    dest: /etc/nginx/sites-enabled/app
+    src: /etc/nginx/sites-available/{{ app_name }}
+    dest: /etc/nginx/sites-enabled/{{ app_name }}
     state: link
   notify: restart nginx
-
-- name: Remove default nginx site
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  notify: restart nginx
-
-- name: Ensure nginx is running
-  systemd:
-    name: nginx
-    state: started
