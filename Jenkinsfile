@@ -548,7 +548,7 @@ Notes:
                         
                         <p><a href="${env.BUILD_URL}">View Build Details</a></p>
                         """,
-                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'team@example.com'}",
+                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'akshara.tarikere@gwu.edu'}",
                         mimeType: 'text/html'
                     )
                 } catch (Exception e) {
@@ -573,7 +573,7 @@ Notes:
                         
                         <p><a href="${env.BUILD_URL}console">View Console Output</a></p>
                         """,
-                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'team@example.com'}",
+                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'akshara.tarikere@gwu.edu'}",
                         mimeType: 'text/html'
                     )
                 } catch (Exception e) {
@@ -589,4 +589,5 @@ Notes:
         }
     }
 }
+
 
