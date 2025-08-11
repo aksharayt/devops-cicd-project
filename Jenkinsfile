@@ -357,7 +357,7 @@ pipeline {
                     if (fileExists('ansible')) {
                         dir('ansible') {
                             withCredentials([
-                                sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                                sshUserPrivateKey(credentialsId: 'devops-key', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
                             ]) {
                                 sh '''
                                     echo "=== Testing Connectivity ==="
@@ -393,7 +393,7 @@ pipeline {
                     if (fileExists('ansible')) {
                         dir('ansible') {
                             withCredentials([
-                                sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                                sshUserPrivateKey(credentialsId: 'devops-key', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
                             ]) {
                                 sh '''
                                     echo "=== Deploying Applications ==="
@@ -424,7 +424,7 @@ pipeline {
                     if (fileExists('ansible')) {
                         dir('ansible') {
                             withCredentials([
-                                sshUserPrivateKey(credentialsId: 'aws_ec2_keypair', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
+                                sshUserPrivateKey(credentialsId: 'devops-key', keyFileVariable: 'SSH_KEY_PATH', usernameVariable: 'SSH_USER')
                             ]) {
                                 sh '''
                                     echo "=== Health Checks ==="
@@ -589,3 +589,4 @@ Notes:
         }
     }
 }
+
