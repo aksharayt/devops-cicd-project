@@ -1,0 +1,30 @@
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-1
+keyed_groups:
+  # Group by instance name tag
+  - key: tags.Name | default('unnamed')
+    prefix: tag_name
+    separator: "_"
+  # Group by instance state
+  - key: instance_state_name
+    prefix: instance_state
+    separator: "_"
+groups:
+  # Create groups based on Name tag
+  webservers: "'WebServer' in (tags.Name | default(''))"
+  elasticsearch_nodes: "'Elasticsearch' in (tags.Name | default(''))"
+  kibana_nodes: "'Kibana' in (tags.Name | default(''))"
+  database_primary: "'MySQL-Primary' in (tags.Name | default(''))"
+  database_standby: "'MySQL-Standby' in (tags.Name | default(''))"
+  databases: group_names | intersect(['database_primary', 'database_standby']) | length > 0
+hostnames:
+  - network-interface.association.public-ip
+  - dns-name
+  - name
+compose:
+  ansible_host: network_interfaces[0].association.public_ip_address
+  private_ip: network_interfaces[0].private_ip_address
+  ansible_user: ubuntu
+  ansible_ssh_private_key_file: ~/.ssh/devops-key.pem
+  ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
