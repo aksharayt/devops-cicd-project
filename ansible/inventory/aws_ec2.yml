@@ -1,30 +1,35 @@
-plugin: amazon.aws.aws_ec2
-regions:
-  - us-east-1
-keyed_groups:
-  # Group by instance name tag
-  - key: tags.Name | default('unnamed')
-    prefix: tag_name
-    separator: "_"
-  # Group by instance state
-  - key: instance_state_name
-    prefix: instance_state
-    separator: "_"
-groups:
-  # Create groups based on Name tag
-  webservers: "'WebServer' in (tags.Name | default(''))"
-  elasticsearch_nodes: "'Elasticsearch' in (tags.Name | default(''))"
-  kibana_nodes: "'Kibana' in (tags.Name | default(''))"
-  database_primary: "'MySQL-Primary' in (tags.Name | default(''))"
-  database_standby: "'MySQL-Standby' in (tags.Name | default(''))"
-  databases: group_names | intersect(['database_primary', 'database_standby']) | length > 0
-hostnames:
-  - network-interface.association.public-ip
-  - dns-name
-  - name
-compose:
-  ansible_host: network_interfaces[0].association.public_ip_address
-  private_ip: network_interfaces[0].private_ip_address
-  ansible_user: ubuntu
-  ansible_ssh_private_key_file: ~/.ssh/devops-key.pem
-  ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+all:
+  vars:
+    ansible_ssh_user: ubuntu
+    ansible_ssh_private_key_file: ~/.ssh/devops-key.pem
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  children:
+    webservers:
+      hosts:
+        webserver:
+          ansible_host: "34.207.116.147"
+          private_ip: "172.31.16.182"
+    elasticsearch_nodes:
+      hosts:
+        elasticsearch:
+          ansible_host: "52.90.98.35"
+          private_ip: "172.31.22.93"
+    kibana_nodes:
+      hosts:
+        kibana:
+          ansible_host: "3.95.57.211"
+          private_ip: "172.31.26.147"
+    database_primary:
+      hosts:
+        mysql_primary:
+          ansible_host: "52.91.58.187"
+          private_ip: "172.31.27.236"
+    database_standby:
+      hosts:
+        mysql_standby:
+          ansible_host: "34.224.68.79"
+          private_ip: "172.31.21.232"
+    databases:
+      children:
+        database_primary:
+        database_standby:
