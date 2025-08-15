@@ -37,8 +37,15 @@ table_definition_cache = 1400
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
 
-# Security
+# Security settings
 skip-name-resolve
 ssl-ca = /var/lib/mysql/ca.pem
 ssl-cert = /var/lib/mysql/server-cert.pem
 ssl-key = /var/lib/mysql/server-key.pem
+
+# Replication settings
+binlog_do_db = appdb
+replicate-do-db = appdb
+
+# Additional security
+local_infile = 0
