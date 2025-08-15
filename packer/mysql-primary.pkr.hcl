@@ -16,6 +16,10 @@ source "amazon-ebs" "mysql-primary" {
   tags = {
     Name = "MySQL-Primary-AMI"
     Environment = "Development"
+    Project = "MySQL-CICD"
+    Type = "Database"
+    Role = "Primary"
+    Owner = "DevOps-Team"
   }
 }
 
@@ -25,20 +29,36 @@ build {
     "source.amazon-ebs.mysql-primary"
   ]
 
+  # Install MySQL and configure it
   provisioner "shell" {
     script = "scripts/install-mysql-primary.sh"
   }
 
+  # Copy MySQL configuration file
   provisioner "file" {
     source      = "files/mysql-primary.cnf"
     destination = "/tmp/mysql-primary.cnf"
   }
 
+  # Apply configuration and enable services
   provisioner "shell" {
     inline = [
       "sudo mv /tmp/mysql-primary.cnf /etc/mysql/mysql.conf.d/custom.cnf",
-      "sudo systemctl enable mysql"
+      "sudo chown mysql:mysql /etc/mysql/mysql.conf.d/custom.cnf",
+      "sudo chmod 644 /etc/mysql/mysql.conf.d/custom.cnf",
+      "sudo systemctl restart mysql",
+      "sudo systemctl enable mysql",
+      "echo 'MySQL configuration applied successfully'"
     ]
   }
 
+  # Final verification
+  provisioner "shell" {
+    inline = [
+      "sudo systemctl status mysql",
+      "sudo mysql -u root -pDevOpsPassword123! -e 'SHOW DATABASES;'",
+      "sudo mysql -u root -pDevOpsPassword123! -e 'SELECT User, Host FROM mysql.user;'",
+      "echo 'MySQL setup verification complete'"
+    ]
+  }
 }
